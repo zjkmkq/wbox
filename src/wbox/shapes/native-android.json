@@ -1,0 +1,73 @@
+{
+  "shape_id": "native-android",
+  "name": "常规原生 Android 应用（Activity/Fragment + 资源）",
+  "summary": "有真实的界面树和布局资源，业务逻辑在 smali 里可读。这类要「逐页重建 ArkUI」：页面映射、状态迁移、数据层保留，是传统的移植活。",
+  "effort": "中~高（每页约 0.5~1 天，取决于交互复杂度）",
+  "detect": {
+    "any": [
+      { "path_glob": "res/layout/*.xml" },
+      { "path_glob": "res/layout-*/**/*.xml" }
+    ],
+    "contains": [
+      { "smali_glob": "**/*.smali", "pattern": "setContentView" },
+      { "smali_glob": "**/*.smali", "pattern": "extends Landroid/app/Activity" }
+    ],
+    "exclude": [
+      { "path_glob": "assets/public/index.html" },
+      { "path_glob": "lib/**/libgdx.so" },
+      { "path_glob": "lib/**/libunity.so" }
+    ]
+  },
+  "migrate": {
+    "approach": "rebuild-ui",
+    "why": "布局文件与业务逻辑可读，属于「看得懂就能重写」的常规移植；不需要换思路，需要的是耐心与页面清单管理。",
+    "steps": [
+      "拆包：生成资源清单 + 模块骨架 + 行为骨架（Activity/Service 清单）",
+      "画拼图：把 Activity/Fragment 对应成 ArkUI 页面，标出复用组件与导航关系",
+      "判断：每个资源/模块给「迁移 / 弃 / 待裁决」，库资源（androidx、广告 SDK、统计 SDK）一律弃",
+      "重建布局：XML → ArkUI 声明式（Column/Row/Stack/List），尺寸用 vp，颜色/字符串走 resources",
+      "迁移逻辑：只搬业务规则与数据流，不搬 Android 生命周期那套壳",
+      "编译 → 装机 → 逐页截图对比"
+    ],
+    "resource_strategy": {
+      "mode": "map",
+      "note": "按用途映射到 base/element（颜色、字符串）与 base/media（图片）；多语言目录只保留需要的语种，不要整包搬 80 个语言。"
+    },
+    "bridge": [
+      {
+        "need": "按需",
+        "reason": "取决于原应用用到的系统能力（通知、定位、相机）",
+        "how": "在决策阶段逐项列出，避免一次性全铺"
+      }
+    ],
+    "renderer_profile": {
+      "rule": "纯声明式，不涉及 H5 渲染器",
+      "why": "ArkUI 是原生声明式框架",
+      "fallback": "复杂自绘控件可用 Canvas 组件（注意 Canvas 没 drawImage，位图仍用 Image）"
+    },
+    "pitfalls": [
+      {
+        "symptom": "资源清单爆炸（1000+ 条、80+ 语言目录）",
+        "cause": "库资源没有过滤，模板工程资源全被当业务资源",
+        "fix": "先按包名/路径识别库资源并批量弃用，只看自有 res"
+      },
+      {
+        "symptom": "页面在，但点不动/数据不更新",
+        "cause": "把 Android 的命令式 UI 更新照搬成 ArkUI 的赋值，没有触发状态刷新",
+        "fix": "ArkUI 要用 @State/@Prop 驱动，直接改对象属性不会重绘"
+      },
+      {
+        "symptom": "编译报 00304056",
+        "cause": "鸿蒙工程骨架缺文件（entry/build-profile.json5 或 entry/hvigorfile.ts 漏了）",
+        "fix": "对照默认模板 MyApplication 逐个补齐"
+      }
+    ],
+    "verify": [
+      "编译 BUILD SUCCESSFUL",
+      "每个页面截图与 Android 原版对比（布局、文案、颜色）",
+      "关键交互链路走通（登录/列表/详情/返回）"
+    ]
+  },
+  "cases": [],
+  "tags": ["native", "android", "arkui", "中风险"]
+}

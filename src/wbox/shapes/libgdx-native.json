@@ -1,0 +1,84 @@
+{
+  "shape_id": "libgdx-native",
+  "name": "libGDX 原生游戏（Java + .so）",
+  "summary": "游戏逻辑在 Java（被 R8 混淆）里，渲染走 libGDX 的 OpenGL。不能翻译 Java 代码，只能「参照重做」：从 smali 提炼数值与规则，在 ArkTS 里重建一套等价玩法。",
+  "effort": "高（3~5 天，主体是数值提炼与手感调平）",
+  "detect": {
+    "any": [
+      { "path_glob": "lib/**/libgdx.so" },
+      { "path_glob": "lib/**/libgdx-box2d.so" }
+    ],
+    "contains": [
+      { "path_glob": "assets/**/*.atlas", "pattern": "" },
+      { "path_glob": "assets/**/*.fnt", "pattern": "" }
+    ],
+    "exclude": [
+      { "path_glob": "assets/public/index.html" }
+    ]
+  },
+  "migrate": {
+    "approach": "rebuild-from-numbers",
+    "why": "Java 侧是命令式游戏循环 + OpenGL 绘制，鸿蒙侧是声明式 ArkUI + Canvas。逐行翻译必失败，正确做法是把「数值、规则、资源」当参考重新实现。",
+    "steps": [
+      "识别自有代码：manifest 入口（只取自有的，库组件会带入 androidx 混淆短包）→ smali 类型引用 BFS 闭包 → 判自有包。圆锯工程实测：入口可达自有 132 类 / 库及不可达 8932 类",
+      "提炼数值：从 smali 常量/资源里抽价格、速度、关卡、公式、视野尺寸，全部写进 spec 的 log 记录（这是唯一可信的迁移依据）",
+      "资源映射：把 .atlas/.png 按语义命名搬进 rawfile，保持「级别/阶段」的目录语义（如 logs/<1..6>/<1..4>.png）",
+      "重建逻辑：ArkTS 里写纯逻辑类（不碰 UI），数值全部来自提炼结果，不要凭感觉调",
+      "重建界面：Canvas 只做粒子与程序绘制的部分；位图用声明式 Image($rawfile(...)) + position 定位",
+      "装配 → 编译 → 装机 → 逐屏比对参考，调手感"
+    ],
+    "resource_strategy": {
+      "mode": "semantic-map",
+      "note": "按语义映射而不是按原路径照搬。注意：路径里的纯 ASCII 段（如 logs/1/1.png 的 1）必须原样保留，不能丢给 ascii_name——裸数字会触发兜底哈希（1 → 1_c4ca），导致所有引用错位、素材白搬。"
+    },
+    "bridge": [
+      {
+        "need": "横屏",
+        "reason": "游戏是横向布局",
+        "how": "EntryAbility 里 mainWindow.setPreferredOrientation(window.Orientation.LANDSCAPE).catch()。注意 setWindowOrientation 不存在，且该方法返回 Promise"
+      },
+      {
+        "need": "振动/音效",
+        "reason": "玩法反馈",
+        "how": "vibrator + AVPlayer（createAVPlayer 返回 Promise，createMediaSourceWithFd 收对象参数）"
+      }
+    ],
+    "renderer_profile": {
+      "rule": "不用 H5 渲染器，直接 ArkTS 原生绘制",
+      "why": "libGDX 的 GL 调用不可移植，等价实现是 ArkUI 声明式 + Canvas 2D",
+      "fallback": "CanvasRenderingContext2D **没有 drawImage** —— 位图必须用声明式 Image 组件，Canvas 只画粒子和几何图形"
+    },
+    "pitfalls": [
+      {
+        "symptom": "用 Canvas 绘制位图报 drawImage is not a function",
+        "cause": "鸿蒙的 CanvasRenderingContext2D 不提供 drawImage",
+        "fix": "位图改声明式 Image($rawfile(...)) + position；Canvas 只做粒子"
+      },
+      {
+        "symptom": "素材显示错乱/找不到",
+        "cause": "路径里的纯数字段被 ascii_name 改成了 1_c4ca 之类",
+        "fix": "只对「含非 ASCII 字符」的路径段做拼音化，纯 ASCII 段原样保留"
+      },
+      {
+        "symptom": "横屏设置无效",
+        "cause": "调用了不存在的 setWindowOrientation",
+        "fix": "用 setPreferredOrientation，返回 Promise 要 catch"
+      },
+      {
+        "symptom": "翻译了 Java 类却跑不通",
+        "cause": "命令式游戏循环与 ArkUI 生命周期不同构",
+        "fix": "放弃逐行翻译，改为「提炼数值 → 重建玩法」"
+      }
+    ],
+    "verify": [
+      "编译 BUILD SUCCESSFUL + HAP 字节数（圆锯工程基准 8,074,202 字节）",
+      "装机后逐屏与参考截图对比（材质、布局、HUD 位置）",
+      "核心手感：切割/投掷等交互要真的能动（这是最容易漏的缝）",
+      "缝清单（seams）里每条 open 项都要有明确的关闭判据"
+    ]
+  },
+  "cases": [
+    { "name": "圆锯模拟器 CircularSawAuto", "bundle": "92934圆锯模拟器8", "engine": "libGDX", "hap_bytes": 8074202, "note": "样本库唯一原生游戏；提炼出切割公式 cutSpeed×woodValue×2.5/(level.a×level.b)×dt、8 锯价格、6 关 3 木头、视野 12.8×7.2" }
+  ],
+  "tags": ["native", "libgdx", "java", "高风险", "需重做"]
+}

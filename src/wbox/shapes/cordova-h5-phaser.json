@@ -1,0 +1,105 @@
+{
+  "shape_id": "cordova-h5-phaser",
+  "name": "Cordova/Capacitor 壳 + H5 游戏（Phaser / Cocos / 自绘 Canvas）",
+  "summary": "APK 里只有一个 WebView 容器，游戏本体是 assets/public 或 assets/www 下的纯 H5。这是目前最省力的一类：原生侧只需要「容器页 + 桥接 + 入口 Ability」三个文件。",
+  "effort": "低（1~2 小时，主体是资源搬迁与渲染兼容）",
+  "detect": {
+    "any": [
+      { "path_glob": "assets/public/index.html" },
+      { "path_glob": "assets/www/index.html" },
+      { "path_glob": "assets/public/**/*.html" }
+    ],
+    "contains": [
+      { "path_glob": "assets/**/*.js", "pattern": "Phaser v" },
+      { "path_glob": "assets/**/*.js", "pattern": "CocosEngine|cc\\.game" },
+      { "path_glob": "assets/**/*.js", "pattern": "Capacitor|cordova" }
+    ],
+    "exclude": [
+      { "path_glob": "lib/**/libgdx.so" },
+      { "path_glob": "lib/**/libunity.so" }
+    ]
+  },
+  "migrate": {
+    "approach": "container-webview",
+    "why": "游戏逻辑全在 JS 里，ArkWeb 能直接跑，重写等于白扔。原生只做容器、桥接、生命周期。",
+    "steps": [
+      "拆包：确认 assets/public 存在即判为 H5 形态，logic_classes 提案里的 Bridge/Plugin/JSObject/$$ExternalSyntheticLambda 全是框架噪音，一律弃",
+      "资源：把 assets/ 整棵树搬进 rawfile，保持 ./assets/ 相对路径不变（扁平化只适用于单文件 res 资产，H5 绝对不行）",
+      "容器页：ArkTS 单页 Web 组件，src 指向 resource://rawfile/index.html",
+      "页面登记：module.json5 必须写 \"pages\": \"$profile:main_pages\"。routerMap 是 FA 模型老字段，错用会导致页面不挂载 → 系统白底、进程不死",
+      "桥接：只补 ArkWeb 缺的能力（vibrate / 存储 / 内购），能走 H5 自带降级就不要伪造原生桥",
+      "编译 → 装机 → 首屏截图 → 逐页点检（设置/商店/游戏内/HUD）"
+    ],
+    "resource_strategy": {
+      "mode": "tree",
+      "note": "整树搬迁，保 ./assets/ 相对路径。index.html 必须去掉 crossorigin 属性（resource:// 是不透明源，带 CORS 模式会整包白屏）。"
+    },
+    "bridge": [
+      {
+        "need": "振动",
+        "reason": "ArkWeb 没有 androidBridge / webkit.messageHandlers，isNativePlatform() 恒为 false，H5 会走自己的 web 降级分支",
+        "how": "注入层把 navigator.vibrate 改写到 javaScriptProxy 暴露的原生 vibrator"
+      },
+      {
+        "need": "持久化",
+        "reason": "Capacitor Preferences 在 web 降级下走 localStorage，ArkWeb 支持；一般无需原生桥",
+        "how": "不处理，或按需映射到 preferences"
+      }
+    ],
+    "renderer_profile": {
+      "rule": "永远让引擎 type: AUTO 自己选，绝不拦截 getContext",
+      "why": "Phaser/Pixi 的颜色走 tint，Canvas2D 渲染器不支持 tint → 形状对、颜色全错（字全白、标题糊成一片）",
+      "fallback": "设备无 WebGL 时会回落 Canvas，此时用 tint bake 补偿（见教程《无 WebGL 的渲染补偿》）",
+      "probe": "在注入层打 console.log：webgl2/webgl 能否拿到上下文 + 引擎 banner（Phaser vX (WEBGL|Canvas)）"
+    },
+    "pitfalls": [
+      {
+        "symptom": "装机后白屏，进程还活着，日志没有报错",
+        "cause": "module.json5 用了 routerMap（FA 模型字段），loadContent/pushUrl 按 pages 解析 → 页面没挂载",
+        "fix": "改成 \"pages\": \"$profile:main_pages\""
+      },
+      {
+        "symptom": "整包白屏 + 控制台 CORS 报错",
+        "cause": "index.html 带 crossorigin 属性，resource:// 是不透明源",
+        "fix": "删掉所有 crossorigin 属性"
+      },
+      {
+        "symptom": "画布空白，透出页面底色（看起来像蓝屏/黑屏）",
+        "cause": "程序化生成像素美术要 10~15 秒（模拟器），取样太早 = 空画布",
+        "fix": "加开机遮罩 + 就绪探针（读 window.game 状态）+ 硬超时兜底"
+      },
+      {
+        "symptom": "所有文字发白，标题糊成一团",
+        "cause": "无 WebGL 回落 Canvas，tint 被丢弃；字模是白色的",
+        "fix": "注入层 tint bake：把 纹理×tint 逐像素烘成新纹理（BitmapText 要整atlaz 重建）"
+      },
+      {
+        "symptom": "点了没反应",
+        "cause": "H5 自带全屏遮罩（如 #turn）在等某个条件，吞掉触摸",
+        "fix": "查 DOM 里 position:fixed 的高层元素，必要时注入 CSS 关掉"
+      },
+      {
+        "symptom": "以为素材没搬全",
+        "cause": "这类游戏美术可能 100% 代码生成（createCanvas + fillRect），public/ 里一张图都没有很正常",
+        "fix": "先 grep bundle 里的 createCanvas/fillRect 计数，别急着找 png"
+      },
+      {
+        "symptom": "编译报 00303312 / 找不到组件",
+        "cause": "工程路径含中文，或 DEVECO_SDK_HOME 指向了没有 sdk-pkg.json 的独立 SDK",
+        "fix": "路径全 ASCII；SDK 指向 IDE 内置的 .../DevEco Studio/sdk"
+      }
+    ],
+    "verify": [
+      "编译 BUILD SUCCESSFUL + HAP 字节数",
+      "装机启动 15~25 秒后截图，画面非空白且方差足够（不是纯色）",
+      "逐页点检：首页 / 设置 / 关于 / 游戏内 / 商店 / 弹窗",
+      "颜色验收：与 Chromium WebGL 同分辨率截图逐像素对比，差异应 <2%",
+      "触摸验收：点击后状态确实变化（金币、页面切换）"
+    ]
+  },
+  "cases": [
+    { "name": "跳石子 Skip the Stone", "bundle": "com.webdevbrian.skipthestone", "engine": "Phaser 4.2.1", "hap_bytes": 3192135, "note": "字体全白的 tint 问题在此首次定位并根治；另发现商店扣款被改成充值（破解版）" },
+    { "name": "灾难模拟器 Wreckbox", "bundle": "com.itslamba.wreckbox", "engine": "Cordova + 本地 H5", "hap_bytes": 480178, "result": "正面案例", "note": "正面案例：拆包 3379 项资源 / 9 模块；draft 阶段由 AI（豆包）paste 生成、写入 0 个文件（正常，只消费 AI 产出文本，不落盘）。中途仅 1 次编译错误（AI 侧引入），让 AI 重复修补该错误后即编译通过；真机测试一遍就过。BUILD SUCCESSFUL，HAP 480,178 字节（unsigned）。含 Unity Ads，广告 SDK 部分直接弃。" }
+  ],
+  "tags": ["h5", "cordova", "capacitor", "phaser", "cocos", "webview", "低风险"]
+}

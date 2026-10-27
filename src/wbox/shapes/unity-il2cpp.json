@@ -1,0 +1,48 @@
+{
+  "shape_id": "unity-il2cpp",
+  "name": "Unity 游戏（IL2CPP / Mono）",
+  "summary": "业务逻辑在 .NET 程序集里，渲染走 Unity 自己的管线。**鸿蒙侧没有等价的运行时**，所以这不是「迁移」，是「换引擎重做」或「维持不迁」。先把这个结论说清楚，比硬着头皮开工更省时间。",
+  "effort": "极高（不建议作为单个工程承接；除非有 Unity 官方鸿蒙导出支持）",
+  "detect": {
+    "any": [
+      { "path_glob": "lib/**/libunity.so" },
+      { "path_glob": "lib/**/libil2cpp.so" }
+    ],
+    "contains": [
+      { "path_glob": "assets/bin/Data/globalgamemanagers", "pattern": "" },
+      { "path_glob": "assets/bin/Data/Managed/**/*.dll", "pattern": "" }
+    ]
+  },
+  "migrate": {
+    "approach": "reject-or-reevaluate",
+    "why": "Unity 运行时（渲染、物理、动画、资源管线）不可移植；IL2CPP 产物是机器码，没有可读语义可供提炼。任何「逐个类翻译」的承诺都是假的。",
+    "steps": [
+      "拆包确认：libunity.so / globalgamemanagers 存在即判 Unity",
+      "判断能否拿到工程源：只有拿到 Unity 工程本身，才谈得上用官方/第三方的鸿蒙导出能力重新出包",
+      "拿不到源 → 结论写成「不可白盒迁移」，向用户给出两个选项：放弃 / 用同玩法重做一个轻量版",
+      "若必须重做，按 libgdx-native 的「提炼数值 → 重建玩法」路径走，但要先明确工作量是重做整个游戏"
+    ],
+    "resource_strategy": {
+      "mode": "extract-only",
+      "note": "资源包（.assets/.resS）可解出贴图音频，但布局与场景关系丢失，只能当美术参考"
+    },
+    "bridge": [],
+    "renderer_profile": {
+      "rule": "无等价渲染路径",
+      "why": "Unity 的场景图/材质/Shader 在 ArkUI 里没有对应物",
+      "fallback": "没有兜底方案，这是形态本身的边界"
+    },
+    "pitfalls": [
+      {
+        "symptom": "试图反编译 Assembly-CSharp.dll 翻译成 ArkTS",
+        "cause": "IL2CPP 下 C# 已编译为 C++ 机器码，逻辑不是「翻译」能还原的",
+        "fix": "直接放弃这条路，向用户要 Unity 工程源"
+      }
+    ],
+    "verify": [
+      "不需要验证——这类形态的验收是「结论是否诚实」，不是「包能不能跑」"
+    ]
+  },
+  "cases": [],
+  "tags": ["native", "unity", "不可迁移", "需产品判断"]
+}

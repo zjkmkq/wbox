@@ -1,0 +1,12 @@
+# WBox 运行 / 开发依赖
+# 说明：apktool.jar 已内置（tools/apktool/apktool.jar，打包时打进 exe）；
+#       JDK 17 与 DevEco Command Line Tools（HarmonyOS SDK）为外部依赖，需另行安装。
+
+# 图形界面（必选）
+PySide6==6.12.0
+
+# 契约校验（必选）
+jsonschema>=4
+
+# 打包成单文件 exe（可选；开发期运行 GUI 不需要）
+PyInstaller==6.22.3

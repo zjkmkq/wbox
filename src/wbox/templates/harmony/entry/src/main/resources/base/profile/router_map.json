@@ -1,0 +1,19 @@
+{
+  "routerMap": [
+    {
+      "name": "LoadingPage",
+      "pageSourceFile": "src/main/ets/pages/LoadingPage.ets",
+      "buildFunction": "LoadingPageBuilder"
+    },
+    {
+      "name": "WorkshopPage",
+      "pageSourceFile": "src/main/ets/pages/WorkshopPage.ets",
+      "buildFunction": "WorkshopPageBuilder"
+    },
+    {
+      "name": "GamePage",
+      "pageSourceFile": "src/main/ets/pages/GamePage.ets",
+      "buildFunction": "GamePageBuilder"
+    }
+  ]
+}

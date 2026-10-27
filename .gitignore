@@ -1,0 +1,52 @@
+# ============================================================
+# WBox - 跨平台迁移白盒工作台 .gitignore
+# 原则：只入库「工具源码 + 文档 + 模板/形态库/教程 + 构建规格」
+#      不入库「构建产物 / 运行时生成的用户工作区 / 本机配置 / 具体迁移工程数据」
+# 注意：git 不识别行尾内联注释，所有注释必须独占一行。
+# ============================================================
+
+# ---------- 构建与打包产物 ----------
+build/
+build-p1/
+build_exe.log
+dist/
+dist-p1/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ---------- 运行时生成 / 用户工作区（可再生，不入库） ----------
+# apktool 解包产物，按需重新生成
+work/
+# 浏览器探针 puppeteer 依赖，npm i 重新安装
+node_modules/
+# APK 样本等下载内容
+Downloads/
+# 迁移草案草稿（按工程生成）
+draft/
+# AI 任务包导出（按工程生成）
+exports/
+
+# ---------- 本地配置与机器相关 ----------
+# 本机应用配置（最近工程/工具路径），运行时自动生成
+wbox.config.json
+*.config.json
+# 本地工作记忆与配置（私有，不入库）
+.workbuddy/
+
+# ---------- 具体迁移工程数据（非工具源码） ----------
+# 仓库根下的具体工程契约；示例见 spec.example.json
+spec.json
+# 默认工作区根（通常在 D:/WBoxWork）
+WBoxWork/
+
+# ---------- 杂项 / 一次性产物 ----------
+arkts redraft compile verified
+material ui redesign compile verified
+.DS_Store
+Thumbs.db
+
+# ---------- 第三方二进制（来源网络，不入库，请自行获取） ----------
+# apktool.jar 由 scripts/fetch_apktool.py 下载到 tools/apktool/
+tools/apktool/apktool.jar

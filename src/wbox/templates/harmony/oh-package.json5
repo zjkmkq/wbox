@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "description": "{{APP_NAME}} 鸿蒙版（WBox 白盒迁移）",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

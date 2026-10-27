@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "{{APP_NAME}} 鸿蒙版（白盒迁移草案）"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "{{APP_NAME}}"
+    },
+    {
+      "name": "page_desc",
+      "value": "游戏页面"
+    }
+  ]
+}

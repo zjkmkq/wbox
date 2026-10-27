@@ -1,0 +1,139 @@
+{
+  "spec_version": "1.0.0",
+  "project": {
+    "name": "跳跳方块",
+    "source": "D:/apks/tiaotiao_v2.3.1.apk",
+    "target": "harmonyos-next",
+    "created_at": "2026-10-22T08:00:00+08:00",
+    "updated_at": "2026-10-22T08:00:00+08:00"
+  },
+  "resources": [
+    {
+      "id": "res_001",
+      "name": "player.png",
+      "type": "image",
+      "format": "png",
+      "size_bytes": 18432,
+      "usage": "玩家角色贴图 32x32",
+      "disposition": "reuse",
+      "notes": "九宫格无压缩损失，可直接用"
+    },
+    {
+      "id": "res_002",
+      "name": "bgm_theme.ogg",
+      "type": "audio",
+      "format": "ogg",
+      "size_bytes": 512000,
+      "usage": "主界面 BGM",
+      "disposition": "convert",
+      "notes": "鸿蒙侧需转 PCM 或改用 AVPlayer 播放"
+    },
+    {
+      "id": "res_003",
+      "name": "levels.json",
+      "type": "level",
+      "format": "json",
+      "size_bytes": 20480,
+      "usage": "20 关平台布局配置",
+      "disposition": "reuse",
+      "notes": ""
+    }
+  ],
+  "modules": [
+    {
+      "id": "mod_001",
+      "name": "主界面",
+      "source_ref": "com.tiaotiao.MainActivity",
+      "disposition": "rewrite",
+      "resources": ["res_002"],
+      "behaviors": ["beh_001"],
+      "notes": "原用 ViewPager 做广告轮播，鸿蒙侧用 Swiper 重写"
+    },
+    {
+      "id": "mod_002",
+      "name": "核心玩法",
+      "source_ref": "com.tiaotiao.game.GameLoop",
+      "disposition": "rewrite",
+      "resources": ["res_001", "res_003"],
+      "behaviors": ["beh_002", "beh_003"],
+      "notes": "SurfaceView 自绘循环，鸿蒙侧用 Canvas 重写"
+    }
+  ],
+  "behaviors": [
+    {
+      "id": "beh_001",
+      "screen": "主界面",
+      "trigger": "冷启动",
+      "expected": "800ms 广告轮播自动播放，可点击跳过",
+      "disposition": "convert",
+      "notes": ""
+    },
+    {
+      "id": "beh_002",
+      "screen": "游戏",
+      "trigger": "点击屏幕",
+      "expected": "角色起跳，y 初速度 -12，伴随 10ms 轻震反馈",
+      "disposition": "confirm",
+      "notes": "原实现调 Android Vibrator，鸿蒙替代 API 待人工确认"
+    },
+    {
+      "id": "beh_003",
+      "screen": "游戏",
+      "trigger": "角色跌出屏幕底部",
+      "expected": "播放 500ms 死亡动画后弹失败面板，可重试",
+      "disposition": "reuse",
+      "notes": ""
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec_001",
+      "topic": "广告 SDK 是否迁移",
+      "options": ["接入鸿蒙广告 SDK", "先砍掉，MVP 无广告"],
+      "chosen": "先砍掉，MVP 无广告",
+      "reason": "生态缝，鸿蒙替代方案未评估完，不阻塞主线",
+      "decided_by": "human",
+      "decided_at": "2026-10-22T09:30:00+08:00"
+    }
+  ],
+  "build_log": [
+    {
+      "id": "log_001",
+      "module_id": "mod_002",
+      "action": "draft_generated",
+      "summary": "AI 生成 GameLoop ArkTS 草案 v1",
+      "diff_ref": "build/mod_002/v1.diff",
+      "at": "2026-10-22T10:00:00+08:00"
+    },
+    {
+      "id": "log_002",
+      "module_id": "mod_002",
+      "action": "rolled_back",
+      "summary": "草案物理手感不对，回退到生成前状态，登记 seam_002",
+      "diff_ref": "",
+      "at": "2026-10-22T11:15:00+08:00"
+    }
+  ],
+  "seams": [
+    {
+      "id": "seam_001",
+      "type": "logic",
+      "source": "mod_002 依赖 Android Choreographer 帧回调",
+      "impact": "鸿蒙无此 API，帧循环实现方式改变，可能影响手感",
+      "fix": "改用 requestAnimationFrame 或 60fps 定时器",
+      "status": "fixed",
+      "verify_result": "真机对比帧率稳定 60±2",
+      "rule_update": "帧循环类逻辑一律先查鸿蒙侧替代 API 再动手"
+    },
+    {
+      "id": "seam_002",
+      "type": "behavior",
+      "source": "beh_002 跳跃手感",
+      "impact": "重做后起跳加速度偏大，老玩家能感知差异",
+      "fix": "",
+      "status": "open",
+      "verify_result": "",
+      "rule_update": ""
+    }
+  ]
+}

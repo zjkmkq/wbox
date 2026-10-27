@@ -1,0 +1,72 @@
+{
+  "shape_id": "webview-shell-remote",
+  "name": "远程 WebView 壳（游戏/网站不在包内）",
+  "summary": "APK 只是浏览器外壳，loadUrl 指向远程服务器。包内没有任何可迁移的业务逻辑——迁移的价值是「做一个同样的容器」或「是否值得做」。",
+  "effort": "极低（半天），但要先回答一个产品问题：这个远程站点还会不会挂",
+  "detect": {
+    "any": [
+      { "path_glob": "assets/public/index.html", "absent": true },
+      { "path_glob": "assets/www/index.html", "absent": true }
+    ],
+    "contains": [
+      { "smali_glob": "**/*.smali", "pattern": "loadUrl\\(\"https?://" },
+      { "smali_glob": "**/*.smali", "pattern": "WebViewClient" }
+    ],
+    "exclude": [
+      { "path_glob": "assets/public/**/*.html" }
+    ]
+  },
+  "migrate": {
+    "approach": "container-webview-remote",
+    "why": "业务逻辑在服务端，客户端只负责加载。鸿蒙侧同样只需要一个 Web 容器。",
+    "steps": [
+      "拆包：找到 loadUrl 的 URL 与 WebView 配置（是否允许 JS、是否允许混合内容、UA 定制）",
+      "确认远程资源是否可用：curl 目标 URL，判断是否 HTTP 明文、是否需要特定 UA/Cookie",
+      "容器页：Web 组件加载远程 URL；开启 javaScriptAccess / domStorageAccess，其它默认收紧",
+      "网络安全：http 明文需要在 module.json5 声明网络安全配置，否则被系统拦（表现为白屏无错）",
+      "编译 → 装机 → 截图确认目标页面真的加载出来"
+    ],
+    "resource_strategy": {
+      "mode": "none",
+      "note": "包内无业务资源可搬，忽略拆包出来的图标/语言包噪音"
+    },
+    "bridge": [
+      {
+        "need": "无",
+        "reason": "远程页面通常不依赖原生桥；若原 APK 注入了 JSBridge，需要逐个确认是否影响主流程",
+        "how": "确认后再补"
+      }
+    ],
+    "renderer_profile": {
+      "rule": "由远程站点自己决定，客户端不干预",
+      "why": "页面不在我们手里，任何注入都可能是越界维护",
+      "fallback": "若远程站点依赖 WebGL 而设备无 WebGL，问题在原站，不在迁移"
+    },
+    "pitfalls": [
+      {
+        "symptom": "白屏，无任何报错",
+        "cause": "module.json5 用 routerMap 而非 pages（页面未挂载）",
+        "fix": "改 pages"
+      },
+      {
+        "symptom": "白屏但日志显示网络 4xx/5xx 或 ERR_CLEARTEXT_NOT_PERMITTED",
+        "cause": "http 明文流量被拦",
+        "fix": "配网络安全配置，或把目标升级到 https"
+      },
+      {
+        "symptom": "远程站点空白但浏览器打开正常",
+        "cause": "站点按 UA 下发内容，ArkWeb 的 UA 与 Android WebView 不同",
+        "fix": "在容器页定制 userAgent"
+      }
+    ],
+    "verify": [
+      "编译 BUILD SUCCESSFUL",
+      "装机后截图出现远程页面实际内容（不是壳的空白）",
+      "与手机浏览器打开同一 URL 对比，内容一致"
+    ]
+  },
+  "cases": [
+    { "name": "RE.apk", "bundle": "tz.wsyt.cn:28443 远程站点", "note": "WebView 壳应用，ArkTS 草案曾编译通过（HAP 120,491 字节），白屏根因同样是 routerMap" }
+  ],
+  "tags": ["webview", "remote", "低风险", "需产品判断"]
+}
