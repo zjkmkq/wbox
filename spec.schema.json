@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wbox://spec/spec-v1.schema.json",
+  "title": "跨平台迁移白盒 spec v1",
+  "description": "Android → HarmonyOS NEXT 白盒迁移工作台的唯一数据契约。所有模块（CLI 或主控）只准通过 wbox.spec 读写本契约。",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "project",
+    "resources",
+    "modules",
+    "behaviors",
+    "decisions",
+    "build_log",
+    "seams"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "spec_version": {
+      "const": "1.0.0",
+      "description": "契约版本。与 SPEC_VERSION 不一致时由 wbox.spec 走迁移链升级，禁止手工修改文件。"
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "name",
+        "source",
+        "target",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "源 APK / 源工程路径"
+        },
+        "target": {
+          "const": "harmonyos-next"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resource"
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/module"
+      }
+    },
+    "behaviors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/behavior"
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "build_log": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/log_entry"
+      }
+    },
+    "seams": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/seam"
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "required": [
+        "generated_at",
+        "resource_moves",
+        "logic_classes",
+        "ui_units",
+        "open_questions"
+      ],
+      "additionalProperties": false,
+      "description": "「画拼图」步产出：鸿蒙结构提案（应用生成初稿，人工逐条修订）",
+      "properties": {
+        "generated_at": {
+          "type": "string"
+        },
+        "web_shell": {
+          "type": "boolean",
+          "description": "Web 壳工程（Capacitor/Cordova：assets/public/ 下有 index.html）。true 时游戏本体是 H5，原生层只需「Web 容器页 + 桥接 + 入口 Ability」三个文件，logic_classes/ui_units 已被裁到容器 triad；框架类全部不迁移。"
+        },
+        "resource_moves": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "res_id",
+              "name",
+              "action",
+              "target",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "res_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "action": {
+                "enum": [
+                  "migrate",
+                  "convert",
+                  "drop",
+                  "keep"
+                ]
+              },
+              "target": {
+                "type": "string",
+                "description": "鸿蒙侧目标路径，如 rawfile/ui/coin.png"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "logic_classes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "mod_id",
+              "name",
+              "target",
+              "pattern",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "mod_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string",
+                "description": "鸿蒙侧目标文件，如 logic/GameState.ets"
+              },
+              "pattern": {
+                "enum": [
+                  "page",
+                  "component",
+                  "dialog",
+                  "state-store",
+                  "pure-logic",
+                  "persistence",
+                  "service"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "smali": {
+                "type": "string",
+                "description": "推断的 smali 相对路径（斜杠形式），任务包据此收集原版参考"
+              }
+            }
+          }
+        },
+        "ui_units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "screen",
+              "kind",
+              "target",
+              "beh_ids",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "screen": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "page",
+                  "component",
+                  "dialog"
+                ]
+              },
+              "target": {
+                "type": "string"
+              },
+              "beh_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "topic",
+              "related",
+              "why"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "topic": {
+                "type": "string"
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "why": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id_pattern": {
+      "type": "string",
+      "pattern": "^[a-z]+_[0-9]{3,}$",
+      "description": "条目 ID 统一格式，如 res_001 / mod_001 / seam_001；允许 3 位以上数字（资源超 999 个的场景）"
+    },
+    "disposition": {
+      "enum": [
+        "reuse",
+        "convert",
+        "rewrite",
+        "replace",
+        "confirm"
+      ],
+      "description": "reuse 直接复用 / convert 转换适配 / rewrite 鸿蒙侧重写 / replace 找替代方案 / confirm 待人工确认"
+    },
+    "resource_type": {
+      "enum": [
+        "image",
+        "audio",
+        "animation",
+        "font",
+        "config",
+        "level",
+        "text"
+      ]
+    },
+    "seam_type": {
+      "enum": [
+        "logic",
+        "resource",
+        "behavior",
+        "ecosystem",
+        "data"
+      ],
+      "description": "逻辑缝 / 资源缝 / 行为缝 / 生态缝 / 数据缝"
+    },
+    "seam_status": {
+      "enum": [
+        "open",
+        "fixed",
+        "verified",
+        "wontfix"
+      ]
+    },
+    "log_action": {
+      "enum": [
+        "extracted",
+        "draft_generated",
+        "compile_verified",
+        "human_edited",
+        "confirmed",
+        "rolled_back",
+        "runtime_fixed"
+      ]
+    },
+    "resource": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "type",
+        "format",
+        "usage",
+        "disposition"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/resource_type"
+        },
+        "format": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "usage": {
+          "type": "string",
+          "description": "用途说明，写人话"
+        },
+        "disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "source_ref",
+        "disposition"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "原工程中的类 / 文件引用，如 com.tiaotiao.game.GameLoop"
+        },
+        "disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id_pattern"
+          }
+        },
+        "behaviors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id_pattern"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "inner_classes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "内部类简单名（smali $ 后部分，如 b、d$a）"
+              },
+              "enclosing": {
+                "type": "string",
+                "description": "外壳方法名（EnclosingMethod，匿名类定位线索）"
+              },
+              "type_hint": {
+                "type": "string",
+                "description": "继承/实现线索（.super 或 .implements，混淆名原样）"
+              },
+              "top": {
+                "type": "string",
+                "description": "所属顶层类简单名（包级聚合时的归属标记；1.0.0 早期格式缺此字段，plan 按缺失即 manifest 顶层类处理）"
+              }
+            }
+          },
+          "description": "自有顶层类的内部类/匿名类清单（含外壳方法与继承线索），提案据此展开为独立逻辑类"
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "自有包的顶层类简单名列表（混淆名原样），提案据此逐个展开为逻辑类"
+        }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "required": [
+        "id",
+        "screen",
+        "trigger",
+        "expected",
+        "disposition"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "screen": {
+          "type": "string",
+          "description": "所在界面"
+        },
+        "trigger": {
+          "type": "string",
+          "description": "触发条件"
+        },
+        "expected": {
+          "type": "string",
+          "description": "期望表现，作为鸿蒙侧重做时的对齐依据"
+        },
+        "disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "id",
+        "topic",
+        "chosen",
+        "decided_by",
+        "decided_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "chosen": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "decided_by": {
+          "const": "human",
+          "description": "判断权永远在人。AI 只给选项和依据，不替人决定。"
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "log_entry": {
+      "type": "object",
+      "required": [
+        "id",
+        "module_id",
+        "action",
+        "summary",
+        "at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "module_id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "action": {
+          "$ref": "#/$defs/log_action"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "diff_ref": {
+          "type": "string",
+          "description": "生成物 / diff 的文件路径，供回溯"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "seam": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "source",
+        "impact",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id_pattern"
+        },
+        "type": {
+          "$ref": "#/$defs/seam_type"
+        },
+        "source": {
+          "type": "string",
+          "description": "缝的来源（哪条逻辑/资源/行为）"
+        },
+        "impact": {
+          "type": "string",
+          "description": "影响范围"
+        },
+        "fix": {
+          "type": "string",
+          "description": "修复方案"
+        },
+        "status": {
+          "$ref": "#/$defs/seam_status"
+        },
+        "verify_result": {
+          "type": "string",
+          "description": "验证结果，行为缝必须真机对比"
+        },
+        "rule_update": {
+          "type": "string",
+          "description": "补缝后沉淀的规则 / 经验更新"
+        }
+      }
+    }
+  }
+}
